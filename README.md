@@ -28,7 +28,7 @@ Supporters text in, team members view conversations in a real-time inbox, and AI
 
 - Node.js 20+
 - A [Supabase](https://supabase.com) project (free tier)
-- A [Twilio](https://www.twilio.com/try-twilio) account (free trial)
+- A [Twilio](https://www.twilio.com/try-twilio) account (pay as you go with $20 balance)
 - An [OpenAI](https://platform.openai.com) API key
 - [ngrok](https://ngrok.com) for local webhook testing
 
