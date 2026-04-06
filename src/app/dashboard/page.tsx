@@ -1,20 +1,35 @@
-import { getUserOrg } from "@/lib/helpers/get-user-org";
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import InboxList from "./components/InboxList";
 import type { Message } from "@/lib/types/database";
 
 export default async function DashboardPage() {
-  const result = await getUserOrg();
-  if (!result) redirect("/login");
-
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const { data: membership } = await supabase
+    .from("org_members")
+    .select("org_id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .single();
+
+  if (!membership) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-gray-500">No organization found. Please contact support.</p>
+      </div>
+    );
+  }
+
+  const orgId = membership.org_id;
 
   // Fetch contacts for this org
   const { data: contacts } = await supabase
     .from("contacts")
     .select("*")
-    .eq("org_id", result.orgId)
+    .eq("org_id", orgId)
     .order("created_at", { ascending: false });
 
   // Fetch the latest message per contact
@@ -55,7 +70,7 @@ export default async function DashboardPage() {
       <InboxList
         contacts={sortedContacts}
         latestMessages={latestMessages}
-        orgId={result.orgId}
+        orgId={orgId}
       />
     </div>
   );
