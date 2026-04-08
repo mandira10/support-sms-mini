@@ -43,7 +43,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   }
 
-  // Send SMS via Twilio
+  // Save outbound message to DB first
+  const { error: dbError } = await supabase.from("messages").insert({
+    contact_id: contactId,
+    org_id: membership.org_id,
+    direction: "outbound",
+    body,
+  });
+
+  if (dbError) {
+    console.error("DB insert error:", dbError);
+    return NextResponse.json(
+      { error: "Failed to save message" },
+      { status: 500 }
+    );
+  }
+
+  // Send SMS via Twilio (non-blocking — message is saved regardless)
   try {
     const twilioClient = twilio(
       process.env.TWILIO_ACCOUNT_SID!,
@@ -57,26 +73,10 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Twilio send error:", error);
-    return NextResponse.json(
-      { error: "Failed to send SMS" },
-      { status: 500 }
-    );
-  }
-
-  // Save outbound message
-  const { error: dbError } = await supabase.from("messages").insert({
-    contact_id: contactId,
-    org_id: membership.org_id,
-    direction: "outbound",
-    body,
-  });
-
-  if (dbError) {
-    console.error("DB insert error:", dbError);
-    return NextResponse.json(
-      { error: "Message sent but failed to save" },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: true,
+      warning: "Message saved but SMS delivery failed — the phone number may not exist or is unreachable.",
+    });
   }
 
   return NextResponse.json({ success: true });
