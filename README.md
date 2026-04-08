@@ -21,6 +21,8 @@ Supporters text in, team members view conversations in a real-time inbox, and AI
 - **Twilio webhook** — receives inbound SMS, auto-creates contacts
 - **Outbound SMS** — send replies directly from the conversation view
 - **AI Suggest** — generates a draft reply (max 160 chars) based on conversation context
+- **Contact management** — edit contact names inline from the conversation view
+- **SQL migrations** — versioned database schema in `supabase/migrations/`
 
 ## Getting Started
 
@@ -59,7 +61,7 @@ cp .env.example .env.local
 
 ### 3. Set up the database
 
-Run the following SQL in your Supabase SQL Editor:
+Migration files are in `supabase/migrations/`. Run them in order in your Supabase SQL Editor:
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -186,8 +188,10 @@ src/
 │   └── api/
 │       ├── sms/route.ts                      # Twilio inbound webhook
 │       ├── sms/send/route.ts                 # Send outbound SMS
-│       └── ai/suggest/route.ts               # AI reply suggestion
+│       ├── ai/suggest/route.ts               # AI reply suggestion
+│       └── contacts/update/route.ts          # Edit contact name
 ├── components/ui/                            # Shared UI components
+├── supabase/migrations/                      # Versioned SQL migrations
 ├── lib/
 │   ├── supabase/                             # Client, server, middleware utils
 │   ├── types/                                # TypeScript types
