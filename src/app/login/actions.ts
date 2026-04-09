@@ -55,8 +55,71 @@ export async function signup(formData: FormData) {
       user_id: authData.user.id,
       role: "admin",
     });
+
+    // Seed demo conversations so new users see a populated inbox
+    await seedDemoConversations(supabase, org.id);
   }
 
   revalidatePath("/", "layout");
   redirect("/dashboard");
+}
+
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
+async function seedDemoConversations(supabase: SupabaseClient, orgId: string) {
+  const demoContacts = [
+    {
+      phone_number: "+4915100000001",
+      name: "Sarah M.",
+      messages: [
+        { direction: "inbound", body: "Hi! I want to help with the food drive next Saturday." },
+        { direction: "inbound", body: "Can you tell me where to sign up?" },
+        { direction: "outbound", body: "Hi Sarah! Thank you so much for wanting to help. You can sign up at our website: hopefoundation.org/volunteer" },
+      ],
+    },
+    {
+      phone_number: "+4917600000002",
+      name: "Anna R.",
+      messages: [
+        { direction: "inbound", body: "I donated €50 last month but haven't received a receipt yet." },
+      ],
+    },
+    {
+      phone_number: "+4915112345678",
+      name: "Tom W.",
+      messages: [
+        { direction: "inbound", body: "Hi, I would like to donate to your clean water project!" },
+        { direction: "outbound", body: "Thank you so much for your generosity! Your support makes a real difference. You can donate here: hopefoundation.org/donate" },
+      ],
+    },
+    {
+      phone_number: "+4917698765432",
+      name: "Lisa K.",
+      messages: [
+        { direction: "inbound", body: "When is the next fundraising event?" },
+      ],
+    },
+  ];
+
+  for (const contact of demoContacts) {
+    const { data: newContact } = await supabase
+      .from("contacts")
+      .insert({
+        org_id: orgId,
+        phone_number: contact.phone_number,
+        name: contact.name,
+      })
+      .select()
+      .single();
+
+    if (newContact) {
+      const messagesToInsert = contact.messages.map((msg) => ({
+        contact_id: newContact.id,
+        org_id: orgId,
+        direction: msg.direction,
+        body: msg.body,
+      }));
+      await supabase.from("messages").insert(messagesToInsert);
+    }
+  }
 }
