@@ -2,7 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+
+function getSupabaseAdmin() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
@@ -38,35 +46,48 @@ export async function signup(formData: FormData) {
   }
 
   if (authData.user) {
-    // Create organization for the new user
-    const { data: org, error: orgError } = await supabase
+    // Use service role client to bypass RLS during signup
+    // (the user may not have an active session yet if email confirmation is on)
+    const supabaseAdmin = getSupabaseAdmin();
+
+    const { data: org, error: orgError } = await supabaseAdmin
       .from("organizations")
       .insert({ name: `${email}'s Organization` })
       .select()
       .single();
 
     if (orgError) {
+      console.error("Org creation error:", orgError);
       redirect(`/signup?error=${encodeURIComponent("Failed to create organization")}`);
     }
 
-    // Link user to organization
-    await supabase.from("org_members").insert({
+    const { error: memberError } = await supabaseAdmin.from("org_members").insert({
       org_id: org.id,
       user_id: authData.user.id,
       role: "admin",
     });
 
+    if (memberError) {
+      console.error("Member creation error:", memberError);
+    }
+
     // Seed demo conversations so new users see a populated inbox
-    await seedDemoConversations(supabase, org.id);
+    await seedDemoConversations(supabaseAdmin, org.id);
   }
 
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+
+  // If user has session, go to dashboard; otherwise to login (email confirmation)
+  if (authData.session) {
+    redirect("/dashboard");
+  } else {
+    redirect("/login?error=Account+created.+Please+check+your+email+to+confirm.");
+  }
 }
 
-type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
-async function seedDemoConversations(supabase: SupabaseClient, orgId: string) {
+async function seedDemoConversations(supabase: SupabaseAdminClient, orgId: string) {
   const demoContacts = [
     {
       phone_number: "+4915100000001",
